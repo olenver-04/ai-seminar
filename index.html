@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ИИ в учебных материалах</title>
+  <meta name="description" content="Слепое сравнение учебных презентаций, созданных ChatGPT, NotebookLM и Claude">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top">🎓 ИИ-семинар</a>
+    <nav>
+      <a href="#works">Работы</a>
+      <a href="#results">Итоги</a>
+      <a href="#tools">Инструменты</a>
+    </nav>
+    <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Сменить тему">◐</button>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <p class="eyebrow" id="heroTopic"></p>
+      <h1 id="heroTitle"></h1>
+      <p class="lead" id="heroSubtitle"></p>
+      <p class="author" id="heroAuthor"></p>
+      <div class="steps">
+        <div class="step"><span>1</span><p><b>Смотрим</b> работу — PDF, PowerPoint или видео WebM</p></div>
+        <div class="step"><span>2</span><p><b>Голосуем</b>: какой ИИ её сделал?</p></div>
+        <div class="step"><span>3</span><p><b>Раскрываем</b> ответ и обсуждаем</p></div>
+      </div>
+      <div class="ai-chips" id="aiChips"></div>
+    </section>
+
+    <section id="works" class="section">
+      <div class="section-head">
+        <h2>Работы</h2>
+        <div class="filters" id="filters" role="tablist">
+          <button data-f="all" class="active">Все</button>
+          <button data-f="pdf">PDF</button>
+          <button data-f="pptx">PowerPoint</button>
+          <button data-f="webm">Видео</button>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section id="results" class="section">
+      <div class="section-head">
+        <h2>Итоги голосования</h2>
+        <div class="row-actions">
+          <button class="btn ghost" id="revealAllBtn">Раскрыть все ответы</button>
+          <button class="btn ghost" id="exportBtn">Скачать CSV</button>
+          <button class="btn ghost danger" id="resetBtn">Сбросить</button>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="table-wrap">
+        <table class="results" id="resultsTable"></table>
+      </div>
+    </section>
+
+    <section id="tools" class="section">
+      <h2>Три инструмента</h2>
+      <div class="tools" id="toolsGrid"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Голоса хранятся только в этом браузере.</span>
+    <span>Клавиши в просмотре: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> — голос, <kbd>R</kbd> — ответ, <kbd>F</kbd> — экран, <kbd>←</kbd> <kbd>→</kbd>, <kbd>Esc</kbd></span>
+  </footer>
+
+  <!-- Просмотр работы -->
+  <div class="viewer" id="viewer" hidden>
+    <div class="viewer-bar">
+      <button class="icon-btn" id="prevBtn" title="Предыдущая (←)">‹</button>
+      <div class="viewer-title"><span id="vTitle"></span> <span class="badge" id="vFormat"></span></div>
+      <button class="icon-btn" id="nextBtn" title="Следующая (→)">›</button>
+      <span class="spacer"></span>
+      <a class="btn ghost small" id="vDownload" download>Скачать</a>
+      <button class="btn ghost small" id="pollToggle">Опрос</button>
+      <button class="icon-btn" id="fsBtn" title="Полный экран (F)">⛶</button>
+      <button class="icon-btn" id="closeBtn" title="Закрыть (Esc)">✕</button>
+    </div>
+    <div class="viewer-body">
+      <div class="stage" id="stage"></div>
+      <aside class="poll" id="poll">
+        <h3>Какой ИИ это сделал?</h3>
+        <p class="hint">Нажимайте на вариант, чтобы добавить голос (или клавиши 1–3). «−» убирает голос.</p>
+        <div class="vote-list" id="voteList"></div>
+        <div class="total" id="voteTotal"></div>
+        <div class="qr" id="qrBox" hidden>
+          <p>Голосовать с телефона:</p>
+          <div id="qr"></div>
+        </div>
+        <button class="btn primary wide" id="revealBtn">Показать ответ</button>
+        <div class="answer" id="answer" hidden></div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
