@@ -27,11 +27,11 @@ window.SEMINAR = {
   // Как получить эти значения — раздел «Голосование с телефонов» в README.
   // Пока databaseURL пустой, голосование с телефонов выключено, а голоса руками работают.
   firebase: {
-    apiKey: "",
-    authDomain: "",
-    databaseURL: "",
-    projectId: "",
-    appId: ""
+    apiKey: "AIzaSyBA0MhHCDAkkuQcxep9U0JDwlHvBotlh2Y",
+    authDomain: "ai-seminar-62f74.firebaseapp.com",
+    databaseURL: "https://ai-seminar-62f74-default-rtdb.firebaseio.com",
+    projectId: "ai-seminar-62f74",
+    appId: "1:573500635763:web:4712e2d1e2e47b253d8806"
   },
   // Название сессии: для новой группы слушателей поменяйте (например "java-loops-2"),
   // и голоса начнутся с нуля, а старые сохранятся в базе.
