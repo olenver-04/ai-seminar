@@ -69,3 +69,9 @@ python -m http.server 8000
 
 и откройте http://localhost:8000. PowerPoint в браузере показывается только после
 публикации (используется онлайн-просмотрщик Microsoft Office, ему нужен публичный адрес файла).
+
+## Streamlit (необязательно)
+
+`app.py` — обёртка для Streamlit Community Cloud: показывает сайт с GitHub Pages внутри Streamlit.
+При деплое укажите **Main file path: `app.py`** и любой свободный адрес приложения.
+Полноэкранный режим и PowerPoint лучше работают по прямой ссылке на GitHub Pages.
