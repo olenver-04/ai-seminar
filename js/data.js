@@ -19,9 +19,9 @@
 
 window.SEMINAR = {
   title: "Создание наглядных учебных материалов с помощью искусственного интеллекта",
-  subtitle: "Семинар для преподавателей: сравниваем ChatGPT, NotebookLM и Claude вслепую",
+  subtitle: "Учебная тема «Циклы в Java»: 9 материалов от ChatGPT, NotebookLM и Claude. Угадайте, кто что сделал.",
   author: "", // например: "Иванов И. И., кафедра ..."
-  topic: "Одна и та же учебная тема — три нейросети — три формата",
+  topic: "Циклы в Java · 3 нейросети × 3 формата (PDF, PowerPoint, видео)",
 
   // Необязательно: ссылка на Google Form / Mentimeter для голосования с телефонов.
   // Если указать — на странице опроса появится QR-код.
@@ -75,16 +75,30 @@ window.SEMINAR = {
     }
   ],
 
+  // Тема у всех работ одна — «Циклы в Java». У каждого ИИ по 3 работы: PDF, PowerPoint, видео.
   // Порядок специально перемешан, чтобы аудитория не угадала закономерность.
+  //
+  //   Файл                     ИИ            Формат
+  //   01.pdf                   Claude        PDF
+  //   02.webm                  NotebookLM    видео
+  //   03.pptx (+03.pdf)        ChatGPT       PowerPoint
+  //   04.pdf                   NotebookLM    PDF
+  //   05.pptx (+05.pdf)        Claude        PowerPoint
+  //   06.webm                  ChatGPT       видео
+  //   07.pdf                   ChatGPT       PDF
+  //   08.webm                  Claude        видео
+  //   09.pptx (+09.pdf)        NotebookLM    PowerPoint
+  //
+  // В поле prompt можно вписать промпт, который вы давали ИИ (покажется после раскрытия ответа).
   works: [
-    { id: "w1", title: "Работа 1", format: "pdf",  file: "presentations/01.pdf",  ai: "claude",     prompt: "", notes: "" },
-    { id: "w2", title: "Работа 2", format: "webm", file: "presentations/02.webm", ai: "notebooklm", prompt: "", notes: "" },
-    { id: "w3", title: "Работа 3", format: "pptx", file: "presentations/03.pptx", pdf: "presentations/03.pdf", ai: "chatgpt", prompt: "", notes: "" },
-    { id: "w4", title: "Работа 4", format: "pdf",  file: "presentations/04.pdf",  ai: "notebooklm", prompt: "", notes: "" },
-    { id: "w5", title: "Работа 5", format: "pptx", file: "presentations/05.pptx", pdf: "presentations/05.pdf", ai: "claude", prompt: "", notes: "" },
-    { id: "w6", title: "Работа 6", format: "webm", file: "presentations/06.webm", ai: "chatgpt",    prompt: "", notes: "" },
-    { id: "w7", title: "Работа 7", format: "pdf",  file: "presentations/07.pdf",  ai: "chatgpt",    prompt: "", notes: "" },
-    { id: "w8", title: "Работа 8", format: "webm", file: "presentations/08.webm", ai: "claude",     prompt: "", notes: "" },
-    { id: "w9", title: "Работа 9", format: "pptx", file: "presentations/09.pptx", pdf: "presentations/09.pdf", ai: "notebooklm", prompt: "", notes: "" }
+    { id: "w1", title: "Циклы в Java · Работа 1", format: "pdf",  file: "presentations/01.pdf",  ai: "claude",     prompt: "", notes: "" },
+    { id: "w2", title: "Циклы в Java · Работа 2", format: "webm", file: "presentations/02.webm", ai: "notebooklm", prompt: "", notes: "" },
+    { id: "w3", title: "Циклы в Java · Работа 3", format: "pptx", file: "presentations/03.pptx", pdf: "presentations/03.pdf", ai: "chatgpt", prompt: "", notes: "" },
+    { id: "w4", title: "Циклы в Java · Работа 4", format: "pdf",  file: "presentations/04.pdf",  ai: "notebooklm", prompt: "", notes: "" },
+    { id: "w5", title: "Циклы в Java · Работа 5", format: "pptx", file: "presentations/05.pptx", pdf: "presentations/05.pdf", ai: "claude", prompt: "", notes: "" },
+    { id: "w6", title: "Циклы в Java · Работа 6", format: "webm", file: "presentations/06.webm", ai: "chatgpt",    prompt: "", notes: "" },
+    { id: "w7", title: "Циклы в Java · Работа 7", format: "pdf",  file: "presentations/07.pdf",  ai: "chatgpt",    prompt: "", notes: "" },
+    { id: "w8", title: "Циклы в Java · Работа 8", format: "webm", file: "presentations/08.webm", ai: "claude",     prompt: "", notes: "" },
+    { id: "w9", title: "Циклы в Java · Работа 9", format: "pptx", file: "presentations/09.pptx", pdf: "presentations/09.pdf", ai: "notebooklm", prompt: "", notes: "" }
   ]
 };
