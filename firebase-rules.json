@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "sessions": {
+      "$session": {
+        ".read": true,
+        ".write": "!newData.exists()",
+        "current": {
+          ".write": true,
+          ".validate": "newData.isString() && newData.val().length < 20"
+        },
+        "revealed": {
+          "$work": {
+            ".write": true,
+            ".validate": "newData.isBoolean()"
+          }
+        },
+        "votes": {
+          "$work": {
+            "$voter": {
+              ".write": true,
+              ".validate": "newData.isString() && newData.val().matches(/^(chatgpt|notebooklm|claude)$/) && $voter.length < 40"
+            }
+          }
+        }
+      }
+    }
+  }
+}

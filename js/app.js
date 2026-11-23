@@ -10,13 +10,89 @@
   };
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  /* ---------- state (localStorage) ---------- */
+  /* ---------- state (localStorage): ручные голоса и раскрытые ответы ---------- */
   const KEY = "ai-seminar-state-v1";
   let state = { votes: {}, revealed: {} };
   try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
-  const votesOf = (id) => (state.votes[id] = state.votes[id] || {});
-  const totalOf = (id) => S.tools.reduce((n, t) => n + (votesOf(id)[t.id] || 0), 0);
+  const manualOf = (id) => (state.votes[id] = state.votes[id] || {});
+
+  /* ---------- голосование с телефонов (Firebase Realtime Database) ---------- */
+  const LIVE = !!(S.firebase && S.firebase.databaseURL && window.firebase);
+  let root = null, online = {}, voters = 0, connected = false;
+  const voteUrl = new URL("vote.html", location.href).href;
+
+  if (LIVE) {
+    try {
+      firebase.initializeApp(S.firebase);
+      const db = firebase.database();
+      root = db.ref("sessions/" + (S.session || "seminar"));
+      root.child("votes").on("value", (snap) => {
+        const all = snap.val() || {}, people = new Set();
+        online = {};
+        Object.keys(all).forEach((w) => {
+          const o = (online[w] = {});
+          Object.entries(all[w] || {}).forEach(([voter, ai]) => { o[ai] = (o[ai] || 0) + 1; people.add(voter); });
+        });
+        voters = people.size;
+        liveUpdate();
+      });
+      db.ref(".info/connected").on("value", (s) => { connected = !!s.val(); liveUpdate(); });
+    } catch (e) { console.error("Firebase:", e); root = null; }
+  }
+  // Управлять телефонами (какая работа открыта, раскрытие, сброс) может только ведущий.
+  // Ведущий открывает сайт один раз по ссылке ...?host — режим запоминается в этом браузере.
+  // ...?host=off — выключить режим ведущего.
+  let HOST = false;
+  try {
+    const p = new URLSearchParams(location.search).get("host");
+    if (p !== null) localStorage.setItem("ai-seminar-host", p === "off" ? "" : "1");
+    HOST = !!localStorage.getItem("ai-seminar-host");
+  } catch (e) {}
+  const ctl = () => (HOST ? root : null);
+  const dbSet = (path, val) => { if (ctl()) ctl().child(path).set(val).catch((e) => console.error(e)); };
+
+  const countsOf = (id) => {
+    const m = manualOf(id), o = online[id] || {}, r = {};
+    S.tools.forEach((t) => (r[t.id] = (m[t.id] || 0) + (o[t.id] || 0)));
+    return r;
+  };
+  const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+  const totalOf = (id) => sum(countsOf(id));
+  const onlineOf = (id) => S.tools.reduce((n, t) => n + ((online[id] || {})[t.id] || 0), 0);
+
+  /* ---------- QR ---------- */
+  function qrSvg(text) {
+    if (!window.qrcode) return "";
+    const q = qrcode(0, "M"); q.addData(text); q.make();
+    return q.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
+  }
+  const shortUrl = voteUrl.replace(/^https?:\/\//, "");
+  const overlay = $("#qrOverlay");
+  function openQr() {
+    overlay.hidden = false;
+    $("#qrBig").innerHTML = LIVE ? qrSvg(voteUrl) : "";
+    $("#qrUrl").textContent = LIVE ? shortUrl : "";
+    updateQrCount();
+  }
+  function updateQrCount() {
+    $("#qrCount").textContent = !LIVE
+      ? "Голосование с телефонов не настроено: заполните блок firebase в js/data.js (см. README)."
+      : voters ? `Уже проголосовали: ${voters} чел.` : "Пока никто не голосовал.";
+  }
+  const closeQr = () => (overlay.hidden = true);
+  $("#qrTopBtn").onclick = openQr;
+  $("#qrHeroBtn").onclick = openQr;
+  $("#qrSmall").onclick = openQr;
+  $("#qrClose").onclick = closeQr;
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeQr(); });
+  if (LIVE) {
+    $("#heroQr").hidden = false;
+    $("#heroQrImg").innerHTML = qrSvg(voteUrl);
+    $("#qrSmall").innerHTML = qrSvg(voteUrl);
+  } else {
+    $("#qrSmall").hidden = true;
+  }
 
   /* ---------- theme ---------- */
   try { const t = localStorage.getItem("ai-seminar-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -76,7 +152,7 @@
     S.works.forEach((w) => {
       const n = totalOf(w.id); votes += n;
       if (state.revealed[w.id] && perAi[w.ai]) {
-        const c = votesOf(w.id)[w.ai] || 0;
+        const c = countsOf(w.id)[w.ai] || 0;
         revealedVotes += n; correct += c;
         perAi[w.ai].v += n; perAi[w.ai].c += c;
       }
@@ -91,6 +167,7 @@
     const acc = pct(st.correct, st.revealedVotes);
     $("#stats").innerHTML = `
       <div class="stat"><div class="k">Всего голосов</div><div class="v">${st.votes}</div></div>
+      ${LIVE ? `<div class="stat"><div class="k">Голосовали с телефонов</div><div class="v">${voters}<small> чел.</small></div></div>` : ""}
       <div class="stat"><div class="k">Раскрыто работ</div><div class="v">${revealedCount}<small> / ${S.works.length}</small></div></div>
       <div class="stat"><div class="k">Аудитория угадала</div><div class="v">${acc === null ? "—" : acc + "%"}</div></div>
       ${S.tools.map((t) => {
@@ -100,12 +177,12 @@
 
     const head = `<tr><th>#</th><th>Работа</th><th>Формат</th>${S.tools.map((t) => `<th>${esc(t.name)}</th>`).join("")}<th>Распределение</th><th>Ответ</th><th>Угадали</th></tr>`;
     const rows = S.works.map((w, i) => {
-      const v = votesOf(w.id), n = totalOf(w.id), rev = state.revealed[w.id], t = toolById[w.ai];
-      const bars = S.tools.map((x) => `<i style="--c:${x.color};width:${n ? ((v[x.id] || 0) / n) * 100 : 0}%"></i>`).join("");
+      const v = countsOf(w.id), n = sum(v), rev = state.revealed[w.id], t = toolById[w.ai];
+      const bars = S.tools.map((x) => `<i style="--c:${x.color};width:${n ? (v[x.id] / n) * 100 : 0}%"></i>`).join("");
       const a = pct(v[w.ai] || 0, n);
       return `<tr class="clickable" data-id="${w.id}">
         <td class="num">${i + 1}</td><td>${esc(w.title)}</td><td>${(FORMAT[w.format] || {}).label || w.format}</td>
-        ${S.tools.map((x) => `<td class="num">${v[x.id] || 0}</td>`).join("")}
+        ${S.tools.map((x) => `<td class="num">${v[x.id]}</td>`).join("")}
         <td><div class="mini-bars">${bars}</div></td>
         <td>${rev && t ? `<span class="badge ai" style="--c:${t.color}">${esc(t.name)}</span>` : `<span class="hidden-ans">скрыт</span>`}</td>
         <td class="num">${rev && a !== null ? `<span class="${a >= 50 ? "ok" : "no"}">${a}%</span>` : "—"}</td>
@@ -120,17 +197,23 @@
 
   $("#revealAllBtn").onclick = () => {
     if (!confirm("Раскрыть ответы для всех работ?")) return;
-    S.works.forEach((w) => (state.revealed[w.id] = true)); save(); refresh();
+    S.works.forEach((w) => { state.revealed[w.id] = true; dbSet("revealed/" + w.id, true); });
+    save(); refresh();
   };
   $("#resetBtn").onclick = () => {
-    if (!confirm("Удалить все голоса и снова скрыть ответы? Это нельзя отменить.")) return;
-    state = { votes: {}, revealed: {} }; save(); refresh();
+    const msg = LIVE
+      ? "Удалить все голоса (и ручные, и с телефонов) и снова скрыть ответы? Это нельзя отменить."
+      : "Удалить все голоса и снова скрыть ответы? Это нельзя отменить.";
+    if (!confirm(msg)) return;
+    state = { votes: {}, revealed: {} }; save();
+    if (ctl()) ctl().remove().catch((e) => console.error(e));
+    online = {}; voters = 0; refresh();
   };
   $("#exportBtn").onclick = () => {
-    const head = ["#", "Работа", "Формат", ...S.tools.map((t) => t.name), "Всего", "Правильный ответ"];
+    const head = ["#", "Работа", "Формат", ...S.tools.map((t) => t.name), "Всего", "Из них с телефонов", "Правильный ответ"];
     const lines = [head, ...S.works.map((w, i) => {
-      const v = votesOf(w.id);
-      return [i + 1, w.title, w.format, ...S.tools.map((t) => v[t.id] || 0), totalOf(w.id),
+      const v = countsOf(w.id);
+      return [i + 1, w.title, w.format, ...S.tools.map((t) => v[t.id]), sum(v), onlineOf(w.id),
         state.revealed[w.id] ? (toolById[w.ai] || {}).name || w.ai : "скрыт"];
     })].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";"));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
@@ -164,12 +247,14 @@
     showPdfCopy = false;
     viewer.hidden = false; document.body.style.overflow = "hidden";
     if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+    dbSet("current", id); // телефоны переключаются на эту работу
     renderStage(); renderPoll();
   }
   function closeViewer() {
     if (document.fullscreenElement) document.exitFullscreen();
     viewer.hidden = true; document.body.style.overflow = ""; $("#stage").innerHTML = "";
     current = null; history.replaceState(null, "", location.pathname + location.search);
+    dbSet("current", null);
     refresh();
   }
   function step(d) {
@@ -181,9 +266,9 @@
     if (!/^https?:$/.test(location.protocol)) return true; // file:// — проверить нельзя
     try { const r = await fetch(url, { method: "HEAD", cache: "no-store" }); return r.ok; } catch (e) { return false; }
   }
-  const missing = (file, extra = "") => `<div class="missing"><div class="big">📭</div>
+  const missing = (file) => `<div class="missing"><div class="big">📭</div>
     <p>Файл ещё не загружен:<br><code>${esc(file)}</code></p>
-    <p>Положите его в папку <code>presentations/</code> или исправьте путь в <code>js/data.js</code>.</p>${extra}</div>`;
+    <p>Положите его в папку <code>presentations/</code> или исправьте путь в <code>js/data.js</code>.</p></div>`;
 
   async function renderStage() {
     const w = current, stage = $("#stage");
@@ -234,19 +319,24 @@
   }
 
   function renderPoll() {
-    const w = current, v = votesOf(w.id), n = totalOf(w.id), rev = !!state.revealed[w.id];
+    const w = current, v = countsOf(w.id), n = sum(v), rev = !!state.revealed[w.id];
     $("#voteList").innerHTML = S.tools.map((t, i) => {
-      const c = v[t.id] || 0, p = n ? Math.round((c / n) * 100) : 0;
+      const c = v[t.id], p = n ? Math.round((c / n) * 100) : 0;
       return `<div class="vote ${rev && w.ai === t.id ? "correct" : ""}" style="--c:${t.color}">
         <button class="vote-main" data-ai="${t.id}">
           <span class="fill" style="width:${p}%"></span>
           <span class="lbl"><span class="key">${i + 1}</span><span class="dot"></span>${esc(t.name)}</span>
           <span class="cnt">${c} <small>${p}%</small></span>
         </button>
-        <button class="vote-minus" data-ai="${t.id}" title="Убрать голос" aria-label="Убрать голос за ${esc(t.name)}">−</button>
+        <button class="vote-minus" data-ai="${t.id}" title="Убрать ручной голос" aria-label="Убрать голос за ${esc(t.name)}">−</button>
       </div>`;
     }).join("");
-    $("#voteTotal").textContent = `Всего голосов: ${n}`;
+    const on = onlineOf(w.id);
+    $("#voteTotal").textContent = LIVE ? `Всего голосов: ${n} (📱 ${on} · ✋ ${n - on})` : `Всего голосов: ${n}`;
+    $("#liveStatus").innerHTML = !LIVE
+      ? "Не настроено — см. README (Firebase)."
+      : `${connected ? "🟢 на связи" : "🟠 подключение…"} · ${esc(shortUrl)}` +
+        (HOST ? "" : `<br>⚠️ Режим ведущего выключен — телефоны не видят эту работу. Откройте сайт по ссылке с <code>?host</code>.`);
 
     const t = toolById[w.ai];
     $("#revealBtn").hidden = rev;
@@ -260,27 +350,29 @@
         ${w.prompt ? `<details open><summary>Промпт</summary><pre>${esc(w.prompt)}</pre></details>` : ""}
         ${w.notes ? `<details open><summary>Комментарий</summary><p>${esc(w.notes)}</p></details>` : ""}
         <button class="btn ghost small" id="hideAgain" style="margin-top:10px">Скрыть ответ</button>`;
-      $("#hideAgain").onclick = () => { delete state.revealed[w.id]; save(); renderPoll(); };
-    }
-
-    // QR for phone voting
-    if (S.pollUrl && window.qrcode) {
-      $("#qrBox").hidden = false;
-      const qr = qrcode(0, "M"); qr.addData(S.pollUrl); qr.make();
-      $("#qr").innerHTML = qr.createImgTag(6, 0);
+      $("#hideAgain").onclick = () => {
+        delete state.revealed[w.id]; save();
+        if (ctl()) ctl().child("revealed/" + w.id).remove().catch(() => {});
+        renderPoll();
+      };
     }
   }
 
   function vote(ai, d) {
     if (!current) return;
-    const v = votesOf(current.id);
-    v[ai] = Math.max(0, (v[ai] || 0) + d); save(); renderPoll();
+    const m = manualOf(current.id);
+    m[ai] = Math.max(0, (m[ai] || 0) + d); save(); renderPoll();
   }
   $("#voteList").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-ai]"); if (!b) return;
     vote(b.dataset.ai, b.classList.contains("vote-minus") ? -1 : 1);
   });
-  function reveal() { if (!current) return; state.revealed[current.id] = true; save(); renderPoll(); }
+  function reveal() {
+    if (!current) return;
+    state.revealed[current.id] = true; save();
+    dbSet("revealed/" + current.id, true); // телефоны покажут правильный ответ
+    renderPoll();
+  }
   $("#revealBtn").onclick = reveal;
   $("#closeBtn").onclick = closeViewer;
   $("#prevBtn").onclick = () => step(-1);
@@ -293,9 +385,12 @@
   $("#fsBtn").onclick = fullscreen;
 
   document.addEventListener("keydown", (e) => {
-    if (!current || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
     const k = e.key.toLowerCase();
+    if (!overlay.hidden && k === "escape") { closeQr(); e.preventDefault(); return; }
+    if (k === "q" || k === "й") { overlay.hidden ? openQr() : closeQr(); e.preventDefault(); return; }
+    if (!current) return;
     if (k === "escape" && !document.fullscreenElement) closeViewer();
     else if (k === "arrowright") step(1);
     else if (k === "arrowleft") step(-1);
@@ -308,7 +403,9 @@
 
   /* ---------- init ---------- */
   function refresh() { renderGrid(); renderResults(); }
+  function liveUpdate() { refresh(); if (current) renderPoll(); if (!overlay.hidden) updateQrCount(); }
   refresh();
   const initial = location.hash.slice(1);
   if (S.works.some((w) => w.id === initial)) openViewer(initial);
+  else dbSet("current", null);
 })();

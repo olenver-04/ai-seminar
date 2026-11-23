@@ -19,6 +19,7 @@
       <a href="#results">Итоги</a>
       <a href="#tools">Инструменты</a>
     </nav>
+    <button class="btn small" id="qrTopBtn" title="QR-код для голосования (Q)">📱 QR</button>
     <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Сменить тему">◐</button>
   </header>
 
@@ -34,6 +35,14 @@
         <div class="step"><span>3</span><p><b>Раскрываем</b> ответ и обсуждаем</p></div>
       </div>
       <div class="ai-chips" id="aiChips"></div>
+      <div class="hero-qr" id="heroQr" hidden>
+        <div class="qr-img" id="heroQrImg"></div>
+        <div>
+          <h3>Голосуйте с телефона</h3>
+          <p>Отсканируйте QR-код один раз — телефон сам будет показывать работу, которую сейчас смотрим.</p>
+          <button class="btn primary" id="qrHeroBtn">Показать QR крупно</button>
+        </div>
+      </div>
     </section>
 
     <section id="works" class="section">
@@ -91,20 +100,36 @@
       <div class="stage" id="stage"></div>
       <aside class="poll" id="poll">
         <h3>Какой ИИ это сделал?</h3>
-        <p class="hint">Нажимайте на вариант, чтобы добавить голос (или клавиши 1–3). «−» убирает голос.</p>
+        <div class="live" id="liveBox">
+          <button class="qr-img small" id="qrSmall" title="Увеличить QR (Q)"></button>
+          <div>
+            <b>📱 Голосуйте с телефона</b>
+            <div class="hint" id="liveStatus"></div>
+          </div>
+        </div>
         <div class="vote-list" id="voteList"></div>
         <div class="total" id="voteTotal"></div>
-        <div class="qr" id="qrBox" hidden>
-          <p>Голосовать с телефона:</p>
-          <div id="qr"></div>
-        </div>
+        <p class="hint">Голоса поднятыми руками: нажмите на вариант (или 1–3), «−» убирает.</p>
         <button class="btn primary wide" id="revealBtn">Показать ответ</button>
         <div class="answer" id="answer" hidden></div>
       </aside>
     </div>
   </div>
 
+  <!-- QR-код крупно -->
+  <div class="qr-overlay" id="qrOverlay" hidden>
+    <div class="qr-card">
+      <h2>Голосуйте с телефона</h2>
+      <div class="qr-img big" id="qrBig"></div>
+      <p class="qr-url" id="qrUrl"></p>
+      <p class="hint" id="qrCount"></p>
+      <button class="btn" id="qrClose">Закрыть (Esc)</button>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
 </body>

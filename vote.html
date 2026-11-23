@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Голосование · ИИ-семинар</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+</head>
+<body class="vote-page">
+  <main class="vp">
+    <p class="eyebrow" id="vpTopic"></p>
+    <div id="vpBody"><div class="vp-card"><p class="hint">Загрузка…</p></div></div>
+    <p class="vp-foot" id="vpFoot"></p>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="js/data.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var S = window.SEMINAR;
+    var body = document.getElementById("vpBody");
+    var foot = document.getElementById("vpFoot");
+    document.getElementById("vpTopic").textContent = S.topic;
+    var toolById = {};
+    S.tools.forEach(function (t) { toolById[t.id] = t; });
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+    var FORMAT = { pdf: "📄 PDF", pptx: "📊 PowerPoint", webm: "🎬 Видео" };
+
+    if (!(S.firebase && S.firebase.databaseURL && window.firebase)) {
+      body.innerHTML = '<div class="vp-card"><h1>Голосование не настроено</h1><p>Ведущему: заполните блок <code>firebase</code> в <code>js/data.js</code> (инструкция в README).</p></div>';
+      return;
+    }
+
+    // Анонимный ID телефона: один голос на работу, его можно менять до раскрытия ответа.
+    var voter = null;
+    try { voter = localStorage.getItem("ai-seminar-voter"); } catch (e) {}
+    if (!voter) {
+      voter = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g, "");
+      try { localStorage.setItem("ai-seminar-voter", voter); } catch (e) {}
+    }
+
+    firebase.initializeApp(S.firebase);
+    var db = firebase.database();
+    var root = db.ref("sessions/" + (S.session || "seminar"));
+    var current = null, revealed = {}, mine = {}, loaded = { c: false, r: false, v: false }, online = false;
+
+    root.child("current").on("value", function (s) { current = s.val(); loaded.c = true; render(); });
+    root.child("revealed").on("value", function (s) { revealed = s.val() || {}; loaded.r = true; render(); });
+    root.child("votes").on("value", function (s) {
+      var all = s.val() || {}; mine = {};
+      Object.keys(all).forEach(function (w) { if (all[w] && all[w][voter]) mine[w] = all[w][voter]; });
+      loaded.v = true; render();
+    });
+    db.ref(".info/connected").on("value", function (s) { online = !!s.val(); render(); });
+
+    function score() {
+      var n = 0, ok = 0;
+      S.works.forEach(function (w) { if (revealed[w.id] && mine[w.id]) { n++; if (mine[w.id] === w.ai) ok++; } });
+      return n ? "Ваш счёт: <b>" + ok + " из " + n + "</b>" : "";
+    }
+
+    function render() {
+      foot.innerHTML = (online ? "🟢 На связи" : "🟠 Подключение…") + (score() ? " · " + score() : "");
+      if (!(loaded.c && loaded.r && loaded.v)) return;
+      var w = null;
+      S.works.forEach(function (x) { if (x.id === current) w = x; });
+      if (!w) {
+        body.innerHTML = '<div class="vp-card center"><div class="vp-big">⏳</div><h1>Ждём следующую работу</h1>' +
+          '<p class="hint">Как только ведущий откроет презентацию, здесь появятся кнопки. Обновлять страницу не нужно.</p></div>';
+        return;
+      }
+      var idx = S.works.indexOf(w) + 1;
+      var my = mine[w.id];
+      var head = '<div class="vp-head"><span class="vp-num">' + idx + '</span><div><h1>Работа ' + idx + '</h1><span class="badge">' + (FORMAT[w.format] || w.format) + '</span></div></div>';
+
+      if (revealed[w.id]) {
+        var t = toolById[w.ai] || { name: w.ai, color: "#888" };
+        var verdict = !my ? '<p class="hint">Вы не голосовали за эту работу.</p>'
+          : my === w.ai ? '<p class="vp-verdict ok">🎉 Вы угадали!</p>'
+          : '<p class="vp-verdict no">Вы выбрали ' + esc((toolById[my] || {}).name || my) + '</p>';
+        body.innerHTML = '<div class="vp-card">' + head + '<p class="hint">Правильный ответ:</p>' +
+          '<div class="vp-answer" style="--c:' + t.color + '"><span class="dot"></span>' + esc(t.name) + '</div>' + verdict + '</div>';
+        return;
+      }
+
+      body.innerHTML = '<div class="vp-card">' + head + '<h2>Какой ИИ это сделал?</h2><div class="vp-options">' +
+        S.tools.map(function (t) {
+          return '<button class="vp-opt' + (my === t.id ? " selected" : "") + '" data-ai="' + t.id + '" style="--c:' + t.color + '">' +
+            '<span class="dot"></span>' + esc(t.name) + (my === t.id ? '<span class="vp-check">✓</span>' : "") + '</button>';
+        }).join("") + '</div>' +
+        '<p class="hint">' + (my ? "Голос принят. Можно изменить, пока ответ не раскрыт." : "Нажмите на вариант.") + '</p></div>';
+    }
+
+    body.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest(".vp-opt") : null;
+      if (!b || !current || revealed[current]) return;
+      var ai = b.getAttribute("data-ai");
+      mine[current] = ai; render();
+      root.child("votes/" + current + "/" + voter).set(ai).catch(function () {
+        foot.innerHTML = "⚠️ Не удалось отправить голос. Проверьте интернет и нажмите ещё раз.";
+      });
+      if (navigator.vibrate) navigator.vibrate(30);
+    });
+  })();
+  </script>
+</body>
+</html>
