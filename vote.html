@@ -30,7 +30,7 @@
     var toolById = {};
     S.tools.forEach(function (t) { toolById[t.id] = t; });
     var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-    var FORMAT = { pdf: "📄 PDF", pptx: "📊 PowerPoint", webm: "🎬 Видео" };
+    var FORMAT = { pdf: "📄 PDF", html: "🌐 HTML" };
 
     if (!(S.firebase && S.firebase.databaseURL && window.firebase)) {
       body.innerHTML = '<div class="vp-card"><h1>Голосование не настроено</h1><p>Ведущему: заполните блок <code>firebase</code> в <code>js/data.js</code> (инструкция в README).</p></div>';

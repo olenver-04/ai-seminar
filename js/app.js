@@ -5,8 +5,7 @@
   const toolById = Object.fromEntries(S.tools.map((t) => [t.id, t]));
   const FORMAT = {
     pdf: { label: "PDF", icon: "📄" },
-    pptx: { label: "PowerPoint", icon: "📊" },
-    webm: { label: "Видео", icon: "🎬" }
+    html: { label: "HTML", icon: "🌐" }
   };
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -237,14 +236,10 @@
 
   /* ---------- viewer ---------- */
   let current = null;
-  let showPdfCopy = false;
   const viewer = $("#viewer");
-  const isPublic = /^https?:$/.test(location.protocol) &&
-    !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
   function openViewer(id) {
     current = S.works.find((w) => w.id === id); if (!current) return;
-    showPdfCopy = false;
     viewer.hidden = false; document.body.style.overflow = "hidden";
     if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
     dbSet("current", id); // телефоны переключаются на эту работу
@@ -279,42 +274,18 @@
     $("#vDownload").href = w.file;
     $("#vDownload").setAttribute("download", "");
 
-    let toggle = $("#pdfToggle");
-    if (w.format === "pptx" && w.pdf) {
-      if (!toggle) {
-        toggle = document.createElement("button");
-        toggle.id = "pdfToggle"; toggle.className = "btn ghost small";
-        toggle.onclick = () => { showPdfCopy = !showPdfCopy; renderStage(); };
-        $("#vDownload").before(toggle);
-      }
-      toggle.textContent = showPdfCopy ? "Показать PowerPoint" : "Показать PDF-копию";
-    } else if (toggle) toggle.remove();
-
     stage.innerHTML = "";
-    const src = w.format === "pptx" && showPdfCopy ? w.pdf : w.file;
-    const fmt = w.format === "pptx" && showPdfCopy ? "pdf" : w.format;
+    const src = w.file;
     const token = {}; renderStage.token = token;
     const ok = await exists(src);
     if (renderStage.token !== token) return;
     if (!ok) { stage.innerHTML = missing(src); return; }
 
-    if (fmt === "pdf") {
+    if (w.format === "pdf") {
       stage.innerHTML = `<iframe src="${esc(src)}#view=FitH&toolbar=1" title="PDF"></iframe>`;
-    } else if (fmt === "webm") {
-      stage.innerHTML = `<video src="${esc(src)}" controls playsinline preload="metadata"></video>`;
-    } else if (fmt === "pptx") {
-      if (isPublic) {
-        const abs = new URL(src, location.href).href;
-        stage.innerHTML = `<iframe src="https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(abs)}" title="PowerPoint" allowfullscreen></iframe>`;
-      } else if (w.pdf && (await exists(w.pdf))) {
-        showPdfCopy = true; renderStage();
-      } else {
-        stage.innerHTML = `<div class="missing"><div class="big">📊</div>
-          <p>Просмотр PowerPoint в браузере работает после публикации сайта на GitHub Pages.</p>
-          <p>Сейчас можно <a href="${esc(src)}" download>скачать файл</a> или добавить PDF-копию (поле <code>pdf</code> в <code>js/data.js</code>).</p></div>`;
-      }
     } else {
-      stage.innerHTML = `<iframe src="${esc(src)}" title="Материал"></iframe>`;
+      // HTML-презентация: листается внутри окна (кликните по слайду, затем стрелки / пробел).
+      stage.innerHTML = `<iframe src="${esc(src)}" title="Презентация" allow="fullscreen" allowfullscreen></iframe>`;
     }
   }
 

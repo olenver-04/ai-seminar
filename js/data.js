@@ -5,23 +5,21 @@
  *
  *  Как добавить презентацию:
  *   1. Положите файл в папку presentations/
- *      ВАЖНО: называйте файлы нейтрально (01.pdf, 02.webm, 03.pptx),
+ *      ВАЖНО: называйте файлы нейтрально (01.pdf, 02.html, 03.pdf),
  *      а НЕ chatgpt.pdf — иначе имя файла выдаст ответ в просмотрщике.
  *   2. Добавьте/измените запись в списке works ниже.
  *
- *  format:  "pdf" | "pptx" | "webm"
+ *  format:  "pdf" | "html"
  *  ai:      "chatgpt" | "notebooklm" | "claude"   (правильный ответ, скрыт до раскрытия)
- *  pdf:     (необязательно, только для pptx) PDF-копия той же презентации —
- *           будет показана, если онлайн-просмотр PowerPoint недоступен.
  *  prompt:  (необязательно) промпт, который вы использовали — показывается после раскрытия.
  *  notes:   (необязательно) ваши комментарии — показываются после раскрытия.
  */
 
 window.SEMINAR = {
   title: "Создание наглядных учебных материалов с помощью искусственного интеллекта",
-  subtitle: "Учебная тема «Циклы в Java»: 9 материалов от ChatGPT, NotebookLM и Claude. Угадайте, кто что сделал.",
+  subtitle: "Учебная тема «Циклы в Java»: 3 презентации от ChatGPT, NotebookLM и Claude. Угадайте, кто что сделал.",
   author: "", // например: "Иванов И. И., кафедра ..."
-  topic: "Циклы в Java · 3 нейросети × 3 формата (PDF, PowerPoint, видео)",
+  topic: "Циклы в Java · 3 нейросети · 3 презентации (HTML и PDF)",
 
   // Голосование с телефонов по QR-коду (бесплатная база Firebase Realtime Database).
   // Как получить эти значения — раздел «Голосование с телефонов» в README.
@@ -85,30 +83,18 @@ window.SEMINAR = {
     }
   ],
 
-  // Тема у всех работ одна — «Циклы в Java». У каждого ИИ по 3 работы: PDF, PowerPoint, видео.
-  // Порядок специально перемешан, чтобы аудитория не угадала закономерность.
+  // Тема у всех работ одна — «Циклы в Java». По одной работе от каждого ИИ.
+  // Порядок перемешан, чтобы аудитория не угадала по порядку.
   //
-  //   Файл                     ИИ            Формат
-  //   01.pdf                   Claude        PDF
-  //   02.webm                  NotebookLM    видео
-  //   03.pptx (+03.pdf)        ChatGPT       PowerPoint
-  //   04.pdf                   NotebookLM    PDF
-  //   05.pptx (+05.pdf)        Claude        PowerPoint
-  //   06.webm                  ChatGPT       видео
-  //   07.pdf                   ChatGPT       PDF
-  //   08.webm                  Claude        видео
-  //   09.pptx (+09.pdf)        NotebookLM    PowerPoint
+  //   Файл       ИИ           Формат
+  //   01.pdf     NotebookLM   PDF
+  //   02.html    Claude       HTML-слайды
+  //   03.pdf     ChatGPT      PDF
   //
   // В поле prompt можно вписать промпт, который вы давали ИИ (покажется после раскрытия ответа).
   works: [
-    { id: "w1", title: "Циклы в Java · Работа 1", format: "pdf",  file: "presentations/01.pdf",  ai: "claude",     prompt: "", notes: "" },
-    { id: "w2", title: "Циклы в Java · Работа 2", format: "webm", file: "presentations/02.webm", ai: "notebooklm", prompt: "", notes: "" },
-    { id: "w3", title: "Циклы в Java · Работа 3", format: "pptx", file: "presentations/03.pptx", pdf: "presentations/03.pdf", ai: "chatgpt", prompt: "", notes: "" },
-    { id: "w4", title: "Циклы в Java · Работа 4", format: "pdf",  file: "presentations/04.pdf",  ai: "notebooklm", prompt: "", notes: "" },
-    { id: "w5", title: "Циклы в Java · Работа 5", format: "pptx", file: "presentations/05.pptx", pdf: "presentations/05.pdf", ai: "claude", prompt: "", notes: "" },
-    { id: "w6", title: "Циклы в Java · Работа 6", format: "webm", file: "presentations/06.webm", ai: "chatgpt",    prompt: "", notes: "" },
-    { id: "w7", title: "Циклы в Java · Работа 7", format: "pdf",  file: "presentations/07.pdf",  ai: "chatgpt",    prompt: "", notes: "" },
-    { id: "w8", title: "Циклы в Java · Работа 8", format: "webm", file: "presentations/08.webm", ai: "claude",     prompt: "", notes: "" },
-    { id: "w9", title: "Циклы в Java · Работа 9", format: "pptx", file: "presentations/09.pptx", pdf: "presentations/09.pdf", ai: "notebooklm", prompt: "", notes: "" }
+    { id: "w1", title: "Циклы в Java · Работа 1", format: "pdf",  file: "presentations/01.pdf",  ai: "notebooklm", prompt: "", notes: "" },
+    { id: "w2", title: "Циклы в Java · Работа 2", format: "html", file: "presentations/02.html", ai: "claude",     prompt: "", notes: "" },
+    { id: "w3", title: "Циклы в Java · Работа 3", format: "pdf",  file: "presentations/03.pdf",  ai: "chatgpt",    prompt: "", notes: "" }
   ]
 };

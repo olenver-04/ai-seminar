@@ -27,6 +27,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.link_button("Открыть сайт в отдельной вкладке (полный экран, PowerPoint)", SITE_URL)
+st.link_button("Открыть сайт в отдельной вкладке (полный экран)", SITE_URL)
 
 components.iframe(SITE_URL, height=900, scrolling=True)
