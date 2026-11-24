@@ -87,14 +87,14 @@ window.SEMINAR = {
   // Порядок перемешан, чтобы аудитория не угадала по порядку.
   //
   //   Файл       ИИ           Формат
-  //   01.pdf     NotebookLM   PDF
+  //   01.pdf     ChatGPT      PDF
   //   02.html    Claude       HTML-слайды
-  //   03.pdf     ChatGPT      PDF
+  //   03.pdf     NotebookLM   PDF
   //
   // В поле prompt можно вписать промпт, который вы давали ИИ (покажется после раскрытия ответа).
   works: [
-    { id: "w1", title: "Циклы в Java · Работа 1", format: "pdf",  file: "presentations/01.pdf",  ai: "notebooklm", prompt: "", notes: "" },
+    { id: "w1", title: "Циклы в Java · Работа 1", format: "pdf",  file: "presentations/01.pdf",  ai: "chatgpt",    prompt: "", notes: "" },
     { id: "w2", title: "Циклы в Java · Работа 2", format: "html", file: "presentations/02.html", ai: "claude",     prompt: "", notes: "" },
-    { id: "w3", title: "Циклы в Java · Работа 3", format: "pdf",  file: "presentations/03.pdf",  ai: "chatgpt",    prompt: "", notes: "" }
+    { id: "w3", title: "Циклы в Java · Работа 3", format: "pdf",  file: "presentations/03.pdf",  ai: "notebooklm", prompt: "", notes: "" }
   ]
 };

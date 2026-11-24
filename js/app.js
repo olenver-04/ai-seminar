@@ -40,13 +40,15 @@
     } catch (e) { console.error("Firebase:", e); root = null; }
   }
   // Управлять телефонами (какая работа открыта, раскрытие, сброс) может только ведущий.
-  // Ведущий открывает сайт один раз по ссылке ...?host — режим запоминается в этом браузере.
-  // ...?host=off — выключить режим ведущего.
-  let HOST = false;
+  // По умолчанию ведущий — любой компьютер (мышь/тачпад); телефоны и планшеты — нет.
+  // Переопределить в конкретном браузере: ...?host — включить, ...?host=off — выключить (запоминается).
+  let HOST = matchMedia("(pointer: fine)").matches;
   try {
     const p = new URLSearchParams(location.search).get("host");
-    if (p !== null) localStorage.setItem("ai-seminar-host", p === "off" ? "" : "1");
-    HOST = !!localStorage.getItem("ai-seminar-host");
+    if (p !== null) localStorage.setItem("ai-seminar-host", p === "off" ? "off" : "on");
+    const saved = localStorage.getItem("ai-seminar-host");
+    if (saved === "on" || saved === "1") HOST = true;
+    if (saved === "off") HOST = false;
   } catch (e) {}
   const ctl = () => (HOST ? root : null);
   const dbSet = (path, val) => { if (ctl()) ctl().child(path).set(val).catch((e) => console.error(e)); };
@@ -306,8 +308,7 @@
     $("#voteTotal").textContent = LIVE ? `Всего голосов: ${n} (📱 ${on} · ✋ ${n - on})` : `Всего голосов: ${n}`;
     $("#liveStatus").innerHTML = !LIVE
       ? "Не настроено — см. README (Firebase)."
-      : `${connected ? "🟢 на связи" : "🟠 подключение…"} · ${esc(shortUrl)}` +
-        (HOST ? "" : `<br>⚠️ Режим ведущего выключен — телефоны не видят эту работу. Откройте сайт по ссылке с <code>?host</code>.`);
+      : `${connected ? "🟢 на связи" : "🟠 подключение…"} · ${esc(shortUrl)}`;
 
     const t = toolById[w.ai];
     $("#revealBtn").hidden = rev;
@@ -378,5 +379,4 @@
   refresh();
   const initial = location.hash.slice(1);
   if (S.works.some((w) => w.id === initial)) openViewer(initial);
-  else dbSet("current", null);
 })();
