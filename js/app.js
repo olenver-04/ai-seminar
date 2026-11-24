@@ -73,12 +73,10 @@
     const q = qrcode(0, "M"); q.addData(text); q.make();
     return q.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
   }
-  const shortUrl = voteUrl.replace(/^https?:\/\//, "");
   const overlay = $("#qrOverlay");
   function openQr() {
     overlay.hidden = false;
     $("#qrBig").innerHTML = LIVE ? qrSvg(voteUrl) : "";
-    $("#qrUrl").textContent = LIVE ? shortUrl : "";
     updateQrCount();
   }
   function updateQrCount() {
@@ -275,7 +273,6 @@
   function openWarmup() {
     if (current) closeViewer();
     $("#wuQr").innerHTML = LIVE ? qrSvg(voteUrl) : "";
-    $("#wuUrl").textContent = LIVE ? shortUrl : "Голосование с телефонов не настроено";
     renderWarmup();
     wuOverlay.hidden = false;
     dbSet("current", "warmup"); // телефоны показывают вопросы разминки
@@ -436,7 +433,7 @@
       (LIVE && CRIT.length ? ` · ⭐ оценили: ${qq.people}` : "");
     $("#liveStatus").innerHTML = !LIVE
       ? "Не настроено — см. README (Firebase)."
-      : `${connected ? "🟢 на связи" : "🟠 подключение…"} · ${esc(shortUrl)}`;
+      : connected ? "🟢 на связи" : "🟠 подключение…";
 
     const t = toolById[w.ai];
     $("#revealBtn").hidden = rev;
