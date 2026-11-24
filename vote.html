@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=12">
+  <link rel="stylesheet" href="css/style.css?v=13">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 </head>
 <body class="vote-page">
@@ -19,7 +19,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <script src="js/data.js?v=12"></script>
+  <script src="js/data.js?v=13"></script>
   <script>
   (function () {
     "use strict";
@@ -30,6 +30,7 @@
     var toolById = {};
     S.tools.forEach(function (t) { toolById[t.id] = t; });
     var CRIT = S.criteria || [];
+    var WU = S.warmup || [];
     var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
     var FORMAT = { pdf: "📄 PDF", html: "🌐 HTML" };
     var ls = {
@@ -52,8 +53,8 @@
     firebase.initializeApp(S.firebase);
     var db = firebase.database();
     var root = db.ref("sessions/" + (S.session || "seminar"));
-    var current = null, revealed = {}, mine = {}, myRates = {}, myName = null, editingName = false;
-    var loaded = { c: false, r: false, v: false, s: false, n: false }, online = false;
+    var current = null, revealed = {}, mine = {}, myRates = {}, myWu = {}, myName = null, editingName = false;
+    var loaded = { c: false, r: false, v: false, s: false, n: false, w: false }, online = false;
 
     root.child("current").on("value", function (s) { current = s.val(); loaded.c = true; render(); });
     root.child("revealed").on("value", function (s) { revealed = s.val() || {}; loaded.r = true; render(); });
@@ -66,6 +67,11 @@
       var all = s.val() || {}; myRates = {};
       Object.keys(all).forEach(function (w) { if (all[w] && all[w][voter]) myRates[w] = all[w][voter]; });
       loaded.s = true; render();
+    });
+    root.child("warmup").on("value", function (s) {
+      var all = s.val() || {}; myWu = {};
+      Object.keys(all).forEach(function (q) { if (all[q] && all[q][voter] != null) myWu[q] = all[q][voter]; });
+      loaded.w = true; render();
     });
     root.child("names/" + voter).on("value", function (s) {
       myName = s.val();
@@ -97,7 +103,7 @@
       foot.innerHTML = (online ? "🟢 На связи" : "🟠 Подключение…") +
         (myName ? ' · ' + esc(myName) + ' <a href="#" id="renameLink">сменить</a>' : "") +
         (score() ? " · " + score() : "");
-      if (!(loaded.c && loaded.r && loaded.v && loaded.s && loaded.n)) return;
+      if (!(loaded.c && loaded.r && loaded.v && loaded.s && loaded.n && loaded.w)) return;
 
       if (!myName || editingName) {
         if (document.getElementById("nameForm")) return; // не перерисовывать, пока человек печатает
@@ -105,6 +111,23 @@
           '<p class="hint">Имя появится в рейтинге «кто лучше всех узнаёт ИИ».</p>' +
           '<form id="nameForm" class="vp-name"><input id="nameInput" maxlength="30" autocomplete="name" placeholder="Например: Айгуль С." value="' + esc(myName || ls.get("ai-seminar-name") || "") + '">' +
           '<button class="btn primary" type="submit">Готово</button></form></div>';
+        return;
+      }
+
+      if (current === "warmup" && WU.length) {
+        var done = WU.every(function (q) { var a = myWu[q.id]; return q.multi ? a && Object.keys(a).length : a; });
+        body.innerHTML = '<div class="vp-card"><div class="vp-head"><span class="vp-num">🙋</span><div><h1>Разминка</h1>' +
+          '<span class="hint">Ответы сразу видны на экране — анонимно</span></div></div>' +
+          WU.map(function (q) {
+            var a = myWu[q.id];
+            return '<h2>' + esc(q.text) + '</h2>' + (q.multi ? '<p class="hint">Можно выбрать несколько</p>' : "") +
+              '<div class="vp-options">' + q.options.map(function (o) {
+                var on = q.multi ? !!(a && a[o.id]) : a === o.id;
+                return '<button class="vp-opt wu-opt' + (on ? " selected" : "") + '" data-q="' + q.id + '" data-o="' + o.id + '" style="--c:var(--accent)">' +
+                  esc(o.label) + (on ? '<span class="vp-check">✓</span>' : "") + '</button>';
+              }).join("") + '</div>';
+          }).join("") +
+          '<p class="hint">' + (done ? "✓ Спасибо! Скоро начнём — экран переключится сам." : "Ответы сохраняются сразу, их можно менять.") + '</p></div>';
         return;
       }
 
@@ -145,6 +168,24 @@
 
     body.addEventListener("click", function (e) {
       if (!e.target.closest) return;
+      var wb = e.target.closest(".wu-opt");
+      if (wb && current === "warmup") {
+        var qid = wb.getAttribute("data-q"), oid = wb.getAttribute("data-o");
+        var q = WU.filter(function (x) { return x.id === qid; })[0];
+        if (!q) return;
+        if (q.multi) {
+          var cur = myWu[qid] = myWu[qid] || {};
+          var val = cur[oid] ? null : true;
+          if (val) cur[oid] = true; else delete cur[oid];
+          render();
+          root.child("warmup/" + qid + "/" + voter + "/" + oid).set(val).catch(fail);
+        } else {
+          myWu[qid] = oid; render();
+          root.child("warmup/" + qid + "/" + voter).set(oid).catch(fail);
+        }
+        if (navigator.vibrate) navigator.vibrate(20);
+        return;
+      }
       var b = e.target.closest(".vp-opt");
       if (b && current && !revealed[current]) {
         var ai = b.getAttribute("data-ai");

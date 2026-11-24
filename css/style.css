@@ -358,3 +358,19 @@ table.quality { min-width: 420px; }
 .final-rank .bar i { display: block; height: 100%; background: var(--c, var(--accent)); }
 .final-rank .sc { font-variant-numeric: tabular-nums; white-space: nowrap; }
 #finalNote { text-align: center; margin-top: 18px; }
+
+/* ---------- Разминка ---------- */
+.wu-layout { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 32px; align-items: start; }
+@media (max-width: 760px) { .wu-layout { grid-template-columns: 1fr; } }
+.wu-qr { text-align: center; }
+.wu-qr .qr-img { width: 100%; max-width: 300px; margin: 0 auto; }
+.wu-qr .qr-url { font-size: 1rem; }
+.wu-count { font-size: 1.4rem; font-weight: 800; margin: 8px 0 0; }
+.wu-charts { display: flex; flex-direction: column; gap: 26px; }
+.wu-q h3 { font-size: clamp(1.1rem, 2.2vw, 1.5rem); margin: 0 0 12px; }
+.wu-row { display: grid; grid-template-columns: minmax(120px, 34%) 1fr 90px; gap: 12px; align-items: center; margin: 8px 0; font-size: clamp(.95rem, 1.6vw, 1.15rem); font-weight: 700; }
+.wu-bar { height: 22px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
+.wu-bar i { display: block; height: 100%; background: var(--accent); border-radius: 8px; transition: width .4s ease; }
+.wu-val { font-variant-numeric: tabular-nums; text-align: right; }
+.wu-val small { color: var(--muted); font-weight: 600; }
+.hero-qr .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -20,7 +20,7 @@
   const LIVE = !!(S.firebase && S.firebase.databaseURL && window.firebase);
   let ready = false; // данные из базы могут прийти раньше, чем страница готова
   let root = null, online = {}, voters = 0, connected = false;
-  let rawVotes = {}, ratings = {}, names = {}; // votes/{work}/{voter}, ratings/{work}/{voter}/{crit}, names/{voter}
+  let rawVotes = {}, ratings = {}, names = {}, warmupData = {}; // votes/{work}/{voter}, ratings/{work}/{voter}/{crit}, names/{voter}
   const voteUrl = new URL("vote.html", location.href).href;
 
   if (LIVE) {
@@ -40,6 +40,7 @@
       });
       root.child("ratings").on("value", (s) => { ratings = s.val() || {}; liveUpdate(); });
       root.child("names").on("value", (s) => { names = s.val() || {}; liveUpdate(); });
+      root.child("warmup").on("value", (s) => { warmupData = s.val() || {}; liveUpdate(); });
       db.ref(".info/connected").on("value", (s) => { connected = !!s.val(); liveUpdate(); });
     } catch (e) { console.error("Firebase:", e); root = null; }
   }
@@ -246,6 +247,42 @@
   $("#finalBtn").onclick = openFinal;
   $("#finalClose").onclick = closeFinal;
   finalOverlay.addEventListener("click", (e) => { if (e.target === finalOverlay) closeFinal(); });
+
+  /* ---------- разминка ---------- */
+  const WU = S.warmup || [];
+  const wuOverlay = $("#warmupOverlay");
+  function renderWarmup() {
+    const people = new Set();
+    WU.forEach((q) => Object.keys(warmupData[q.id] || {}).forEach((v) => people.add(v)));
+    $("#wuCount").textContent = people.size ? `Ответили: ${people.size} чел.` : "Ждём первых ответов…";
+    $("#wuCharts").innerHTML = WU.map((q) => {
+      const answers = Object.values(warmupData[q.id] || {});
+      const counts = {};
+      answers.forEach((a) => {
+        if (q.multi) Object.keys(a || {}).forEach((o) => (counts[o] = (counts[o] || 0) + 1));
+        else counts[a] = (counts[a] || 0) + 1;
+      });
+      const n = answers.length;
+      const max = Math.max(1, ...Object.values(counts));
+      return `<div class="wu-q"><h3>${esc(q.text)}</h3>${q.options.map((o) => {
+        const c = counts[o.id] || 0, p = n ? Math.round((c / n) * 100) : 0;
+        return `<div class="wu-row"><span class="wu-lbl">${esc(o.label)}</span>
+          <span class="wu-bar"><i style="width:${(c / max) * 100}%"></i></span>
+          <span class="wu-val">${c} <small>${p}%</small></span></div>`;
+      }).join("")}</div>`;
+    }).join("") || `<p class="hint">Вопросы разминки не заданы (поле warmup в js/data.js).</p>`;
+  }
+  function openWarmup() {
+    if (current) closeViewer();
+    $("#wuQr").innerHTML = LIVE ? qrSvg(voteUrl) : "";
+    $("#wuUrl").textContent = LIVE ? shortUrl : "Голосование с телефонов не настроено";
+    renderWarmup();
+    wuOverlay.hidden = false;
+    dbSet("current", "warmup"); // телефоны показывают вопросы разминки
+  }
+  function closeWarmup() { wuOverlay.hidden = true; dbSet("current", null); }
+  $("#warmupBtn").onclick = openWarmup;
+  $("#warmupClose").onclick = closeWarmup;
 
   function renderResults() {
     const st = computeStats();
@@ -454,6 +491,8 @@
     const k = e.key.toLowerCase();
     if (!overlay.hidden && k === "escape") { closeQr(); e.preventDefault(); return; }
     if (!finalOverlay.hidden && k === "escape") { closeFinal(); e.preventDefault(); return; }
+    if (!wuOverlay.hidden && k === "escape") { closeWarmup(); e.preventDefault(); return; }
+    if ((k === "w" || k === "ц") && !current) { wuOverlay.hidden ? openWarmup() : closeWarmup(); e.preventDefault(); return; }
     if ((k === "t" || k === "е") && !current) { finalOverlay.hidden ? openFinal() : closeFinal(); e.preventDefault(); return; }
     if (k === "q" || k === "й") { overlay.hidden ? openQr() : closeQr(); e.preventDefault(); return; }
     if (!current) return;
@@ -469,7 +508,7 @@
 
   /* ---------- init ---------- */
   function refresh() { renderGrid(); renderResults(); }
-  function liveUpdate() { if (!ready) return; refresh(); if (current) renderPoll(); if (!overlay.hidden) updateQrCount(); if (!finalOverlay.hidden) renderFinal(); }
+  function liveUpdate() { if (!ready) return; refresh(); if (current) renderPoll(); if (!overlay.hidden) updateQrCount(); if (!finalOverlay.hidden) renderFinal(); if (!wuOverlay.hidden) renderWarmup(); }
   ready = true;
   refresh();
   const initial = location.hash.slice(1);

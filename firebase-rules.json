@@ -37,6 +37,17 @@
               }
             }
           }
+        },
+        "warmup": {
+          "$q": {
+            "$voter": {
+              ".write": true,
+              ".validate": "$voter.length < 40 && $q.matches(/^[a-z]{1,20}$/) && ((newData.isString() && newData.val().matches(/^[a-z]{1,20}$/)) || newData.hasChildren())",
+              "$opt": {
+                ".validate": "newData.isBoolean() && $opt.matches(/^[a-z]{1,20}$/)"
+              }
+            }
+          }
         }
       }
     }

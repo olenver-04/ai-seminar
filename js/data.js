@@ -40,6 +40,33 @@ window.SEMINAR = {
     { id: "use",      label: "Взял бы на свой урок" }
   ],
 
+  // Разминка в начале семинара: вопросы на телефонах, ответы — живыми диаграммами на экране.
+  // multi: true — можно выбрать несколько вариантов. id — латиницей.
+  warmup: [
+    {
+      id: "freq",
+      text: "Пользуетесь ли вы ИИ для подготовки учебных материалов?",
+      options: [
+        { id: "never", label: "Никогда" },
+        { id: "tried", label: "Пробовал(а) пару раз" },
+        { id: "sometimes", label: "Иногда" },
+        { id: "often", label: "Регулярно" }
+      ]
+    },
+    {
+      id: "tools",
+      text: "Какими ИИ пользуетесь?",
+      multi: true,
+      options: [
+        { id: "chatgpt", label: "ChatGPT" },
+        { id: "gemini", label: "Gemini / NotebookLM" },
+        { id: "claude", label: "Claude" },
+        { id: "other", label: "Другие" },
+        { id: "none", label: "Пока никакими" }
+      ]
+    }
+  ],
+
   // Название сессии: для новой группы слушателей поменяйте (например "java-loops-2"),
   // и голоса начнутся с нуля, а старые сохранятся в базе.
   session: "java-loops",
