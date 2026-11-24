@@ -21,6 +21,22 @@
               ".validate": "newData.isString() && newData.val().matches(/^(chatgpt|notebooklm|claude)$/) && $voter.length < 40"
             }
           }
+        },
+        "names": {
+          "$voter": {
+            ".write": true,
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30 && $voter.length < 40"
+          }
+        },
+        "ratings": {
+          "$work": {
+            "$voter": {
+              "$crit": {
+                ".write": true,
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 5 && $crit.matches(/^[a-z]{1,20}$/) && $voter.length < 40"
+              }
+            }
+          }
         }
       }
     }

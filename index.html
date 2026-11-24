@@ -61,6 +61,7 @@
       <div class="section-head">
         <h2>Итоги голосования</h2>
         <div class="row-actions">
+          <button class="btn primary" id="finalBtn" title="Итоги на весь экран (T)">🏆 Итоги на экран</button>
           <button class="btn ghost" id="revealAllBtn">Раскрыть все ответы</button>
           <button class="btn ghost" id="exportBtn">Скачать CSV</button>
           <button class="btn ghost danger" id="resetBtn">Сбросить</button>
@@ -69,6 +70,17 @@
       <div class="stats" id="stats"></div>
       <div class="table-wrap">
         <table class="results" id="resultsTable"></table>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <h3 class="sub">⭐ Оценки качества <small>средний балл 1–5, ставили вслепую</small></h3>
+          <div class="table-wrap"><table class="results quality" id="qualityTable"></table></div>
+        </div>
+        <div>
+          <h3 class="sub">🧠 Кто лучше всех узнаёт ИИ</h3>
+          <div class="leader" id="leaderBox"></div>
+        </div>
       </div>
     </section>
 
@@ -112,6 +124,19 @@
         <button class="btn primary wide" id="revealBtn">Показать ответ</button>
         <div class="answer" id="answer" hidden></div>
       </aside>
+    </div>
+  </div>
+
+  <!-- Итоги на весь экран -->
+  <div class="final-overlay" id="finalOverlay" hidden>
+    <div class="final-card">
+      <button class="icon-btn final-close" id="finalClose" title="Закрыть (Esc)">✕</button>
+      <h2>🏆 Итоги семинара</h2>
+      <div class="final-grid">
+        <div><h3>Лучшая работа по мнению зала</h3><div id="finalBest"></div></div>
+        <div><h3>Лучше всех узнаёт ИИ</h3><div id="finalPodium"></div></div>
+      </div>
+      <p class="hint" id="finalNote"></p>
     </div>
   </div>
 

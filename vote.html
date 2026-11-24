@@ -29,8 +29,13 @@
     document.getElementById("vpTopic").textContent = S.topic;
     var toolById = {};
     S.tools.forEach(function (t) { toolById[t.id] = t; });
+    var CRIT = S.criteria || [];
     var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
     var FORMAT = { pdf: "📄 PDF", html: "🌐 HTML" };
+    var ls = {
+      get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+      set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+    };
 
     if (!(S.firebase && S.firebase.databaseURL && window.firebase)) {
       body.innerHTML = '<div class="vp-card"><h1>Голосование не настроено</h1><p>Ведущему: заполните блок <code>firebase</code> в <code>js/data.js</code> (инструкция в README).</p></div>';
@@ -38,17 +43,17 @@
     }
 
     // Анонимный ID телефона: один голос на работу, его можно менять до раскрытия ответа.
-    var voter = null;
-    try { voter = localStorage.getItem("ai-seminar-voter"); } catch (e) {}
+    var voter = ls.get("ai-seminar-voter");
     if (!voter) {
       voter = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g, "");
-      try { localStorage.setItem("ai-seminar-voter", voter); } catch (e) {}
+      ls.set("ai-seminar-voter", voter);
     }
 
     firebase.initializeApp(S.firebase);
     var db = firebase.database();
     var root = db.ref("sessions/" + (S.session || "seminar"));
-    var current = null, revealed = {}, mine = {}, loaded = { c: false, r: false, v: false }, online = false;
+    var current = null, revealed = {}, mine = {}, myRates = {}, myName = null, editingName = false;
+    var loaded = { c: false, r: false, v: false, s: false, n: false }, online = false;
 
     root.child("current").on("value", function (s) { current = s.val(); loaded.c = true; render(); });
     root.child("revealed").on("value", function (s) { revealed = s.val() || {}; loaded.r = true; render(); });
@@ -56,6 +61,17 @@
       var all = s.val() || {}; mine = {};
       Object.keys(all).forEach(function (w) { if (all[w] && all[w][voter]) mine[w] = all[w][voter]; });
       loaded.v = true; render();
+    });
+    root.child("ratings").on("value", function (s) {
+      var all = s.val() || {}; myRates = {};
+      Object.keys(all).forEach(function (w) { if (all[w] && all[w][voter]) myRates[w] = all[w][voter]; });
+      loaded.s = true; render();
+    });
+    root.child("names/" + voter).on("value", function (s) {
+      myName = s.val();
+      // Если ведущий сбросил сессию, а имя осталось в телефоне — восстанавливаем его.
+      if (!myName && ls.get("ai-seminar-name")) { myName = ls.get("ai-seminar-name"); root.child("names/" + voter).set(myName); }
+      loaded.n = true; render();
     });
     db.ref(".info/connected").on("value", function (s) { online = !!s.val(); render(); });
 
@@ -65,9 +81,33 @@
       return n ? "Ваш счёт: <b>" + ok + " из " + n + "</b>" : "";
     }
 
+    function stars(workId, locked) {
+      var r = myRates[workId] || {};
+      return '<div class="vp-rates">' + CRIT.map(function (c) {
+        var v = r[c.id] || 0, row = "";
+        for (var i = 1; i <= 5; i++) {
+          row += '<button class="star' + (i <= v ? " on" : "") + '" data-crit="' + c.id + '" data-v="' + i + '"' +
+            (locked ? " disabled" : "") + ' aria-label="' + esc(c.label) + ': ' + i + '">★</button>';
+        }
+        return '<div class="vp-rate"><span>' + esc(c.label) + '</span><div class="stars">' + row + '</div></div>';
+      }).join("") + '</div>';
+    }
+
     function render() {
-      foot.innerHTML = (online ? "🟢 На связи" : "🟠 Подключение…") + (score() ? " · " + score() : "");
-      if (!(loaded.c && loaded.r && loaded.v)) return;
+      foot.innerHTML = (online ? "🟢 На связи" : "🟠 Подключение…") +
+        (myName ? ' · ' + esc(myName) + ' <a href="#" id="renameLink">сменить</a>' : "") +
+        (score() ? " · " + score() : "");
+      if (!(loaded.c && loaded.r && loaded.v && loaded.s && loaded.n)) return;
+
+      if (!myName || editingName) {
+        if (document.getElementById("nameForm")) return; // не перерисовывать, пока человек печатает
+        body.innerHTML = '<div class="vp-card"><div class="vp-big">👋</div><h1>Как вас зовут?</h1>' +
+          '<p class="hint">Имя появится в рейтинге «кто лучше всех узнаёт ИИ».</p>' +
+          '<form id="nameForm" class="vp-name"><input id="nameInput" maxlength="30" autocomplete="name" placeholder="Например: Айгуль С." value="' + esc(myName || ls.get("ai-seminar-name") || "") + '">' +
+          '<button class="btn primary" type="submit">Готово</button></form></div>';
+        return;
+      }
+
       var w = null;
       S.works.forEach(function (x) { if (x.id === current) w = x; });
       if (!w) {
@@ -85,27 +125,56 @@
           : my === w.ai ? '<p class="vp-verdict ok">🎉 Вы угадали!</p>'
           : '<p class="vp-verdict no">Вы выбрали ' + esc((toolById[my] || {}).name || my) + '</p>';
         body.innerHTML = '<div class="vp-card">' + head + '<p class="hint">Правильный ответ:</p>' +
-          '<div class="vp-answer" style="--c:' + t.color + '"><span class="dot"></span>' + esc(t.name) + '</div>' + verdict + '</div>';
+          '<div class="vp-answer" style="--c:' + t.color + '"><span class="dot"></span>' + esc(t.name) + '</div>' + verdict +
+          (CRIT.length && myRates[w.id] ? '<h2>Ваши оценки</h2>' + stars(w.id, true) : "") + '</div>';
         return;
       }
 
-      body.innerHTML = '<div class="vp-card">' + head + '<h2>Какой ИИ это сделал?</h2><div class="vp-options">' +
+      var rated = CRIT.filter(function (c) { return (myRates[w.id] || {})[c.id]; }).length;
+      body.innerHTML = '<div class="vp-card">' + head + '<h2>1. Какой ИИ это сделал?</h2><div class="vp-options">' +
         S.tools.map(function (t) {
           return '<button class="vp-opt' + (my === t.id ? " selected" : "") + '" data-ai="' + t.id + '" style="--c:' + t.color + '">' +
             '<span class="dot"></span>' + esc(t.name) + (my === t.id ? '<span class="vp-check">✓</span>' : "") + '</button>';
         }).join("") + '</div>' +
-        '<p class="hint">' + (my ? "Голос принят. Можно изменить, пока ответ не раскрыт." : "Нажмите на вариант.") + '</p></div>';
+        (CRIT.length ? '<h2>2. Оцените работу</h2>' + stars(w.id, false) : "") +
+        '<p class="hint">' + (my && rated === CRIT.length ? "✓ Всё отправлено. Можно менять, пока ответ не раскрыт."
+          : "Ответы сохраняются сразу. Можно менять, пока ответ не раскрыт.") + '</p></div>';
     }
 
+    function fail() { foot.innerHTML = "⚠️ Не удалось отправить. Проверьте интернет и нажмите ещё раз."; }
+
     body.addEventListener("click", function (e) {
-      var b = e.target.closest ? e.target.closest(".vp-opt") : null;
-      if (!b || !current || revealed[current]) return;
-      var ai = b.getAttribute("data-ai");
-      mine[current] = ai; render();
-      root.child("votes/" + current + "/" + voter).set(ai).catch(function () {
-        foot.innerHTML = "⚠️ Не удалось отправить голос. Проверьте интернет и нажмите ещё раз.";
-      });
-      if (navigator.vibrate) navigator.vibrate(30);
+      if (!e.target.closest) return;
+      var b = e.target.closest(".vp-opt");
+      if (b && current && !revealed[current]) {
+        var ai = b.getAttribute("data-ai");
+        mine[current] = ai; render();
+        root.child("votes/" + current + "/" + voter).set(ai).catch(fail);
+        if (navigator.vibrate) navigator.vibrate(30);
+        return;
+      }
+      var st = e.target.closest(".star");
+      if (st && !st.disabled && current && !revealed[current]) {
+        var crit = st.getAttribute("data-crit"), v = +st.getAttribute("data-v");
+        (myRates[current] = myRates[current] || {})[crit] = v; render();
+        root.child("ratings/" + current + "/" + voter + "/" + crit).set(v).catch(fail);
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+    });
+
+    body.addEventListener("submit", function (e) {
+      if (e.target.id !== "nameForm") return;
+      e.preventDefault();
+      var name = document.getElementById("nameInput").value.replace(/\s+/g, " ").trim().slice(0, 30);
+      if (!name) return;
+      myName = name; editingName = false; ls.set("ai-seminar-name", name);
+      body.innerHTML = ""; render();
+      root.child("names/" + voter).set(name).catch(fail);
+    });
+
+    foot.addEventListener("click", function (e) {
+      if (e.target.id !== "renameLink") return;
+      e.preventDefault(); editingName = true; body.innerHTML = ""; render();
     });
   })();
   </script>

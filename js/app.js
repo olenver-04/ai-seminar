@@ -19,6 +19,7 @@
   /* ---------- голосование с телефонов (Firebase Realtime Database) ---------- */
   const LIVE = !!(S.firebase && S.firebase.databaseURL && window.firebase);
   let root = null, online = {}, voters = 0, connected = false;
+  let rawVotes = {}, ratings = {}, names = {}; // votes/{work}/{voter}, ratings/{work}/{voter}/{crit}, names/{voter}
   const voteUrl = new URL("vote.html", location.href).href;
 
   if (LIVE) {
@@ -28,7 +29,7 @@
       root = db.ref("sessions/" + (S.session || "seminar"));
       root.child("votes").on("value", (snap) => {
         const all = snap.val() || {}, people = new Set();
-        online = {};
+        rawVotes = all; online = {};
         Object.keys(all).forEach((w) => {
           const o = (online[w] = {});
           Object.entries(all[w] || {}).forEach(([voter, ai]) => { o[ai] = (o[ai] || 0) + 1; people.add(voter); });
@@ -36,6 +37,8 @@
         voters = people.size;
         liveUpdate();
       });
+      root.child("ratings").on("value", (s) => { ratings = s.val() || {}; liveUpdate(); });
+      root.child("names").on("value", (s) => { names = s.val() || {}; liveUpdate(); });
       db.ref(".info/connected").on("value", (s) => { connected = !!s.val(); liveUpdate(); });
     } catch (e) { console.error("Firebase:", e); root = null; }
   }
@@ -162,6 +165,87 @@
   }
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : null);
 
+  /* ---------- оценки качества и рейтинг участников ---------- */
+  const CRIT = S.criteria || [];
+  const fmt1 = (x) => (x == null ? "—" : x.toFixed(1).replace(".", ","));
+  function qualityOf(workId) {
+    const per = {}, all = { sum: 0, n: 0 };
+    let people = 0;
+    CRIT.forEach((c) => (per[c.id] = { sum: 0, n: 0 }));
+    Object.values(ratings[workId] || {}).forEach((r) => {
+      people++;
+      CRIT.forEach((c) => { const v = +r[c.id]; if (v >= 1 && v <= 5) { per[c.id].sum += v; per[c.id].n++; all.sum += v; all.n++; } });
+    });
+    const avg = (o) => (o.n ? o.sum / o.n : null);
+    return { crit: Object.fromEntries(CRIT.map((c) => [c.id, avg(per[c.id])])), total: avg(all), people };
+  }
+  const workLabel = (w, withAi) => {
+    const i = S.works.indexOf(w) + 1, t = toolById[w.ai];
+    return `Работа ${i}` + (withAi && t ? ` <span class="badge ai" style="--c:${t.color}">${esc(t.name)}</span>` : "");
+  };
+  function renderQuality() {
+    if (!CRIT.length) { $("#qualityTable").innerHTML = ""; return; }
+    const q = Object.fromEntries(S.works.map((w) => [w.id, qualityOf(w.id)]));
+    const best = (getter) => Math.max(...S.works.map((w) => getter(q[w.id]) ?? -1));
+    const cell = (v, b) => `<td class="num${v != null && v === b ? " best" : ""}">${v == null ? "—" : `${fmt1(v)} <span class="st">★</span>`}</td>`;
+    const head = `<tr><th>Критерий</th>${S.works.map((w) => `<th>${workLabel(w, state.revealed[w.id])}</th>`).join("")}</tr>`;
+    const rows = CRIT.map((c) => { const b = best((x) => x.crit[c.id]); return `<tr><td>${esc(c.label)}</td>${S.works.map((w) => cell(q[w.id].crit[c.id], b)).join("")}</tr>`; }).join("");
+    const bt = best((x) => x.total);
+    const total = `<tr class="total-row"><td><b>Средний балл</b></td>${S.works.map((w) => cell(q[w.id].total, bt)).join("")}</tr>`;
+    const people = `<tr><td class="hint">Оценили</td>${S.works.map((w) => `<td class="num hint">${q[w.id].people} чел.</td>`).join("")}</tr>`;
+    $("#qualityTable").innerHTML = `<thead>${head}</thead><tbody>${rows}${total}${people}</tbody>`;
+  }
+  function leaderboard() {
+    const revealedWorks = S.works.filter((w) => state.revealed[w.id]);
+    const ids = new Set(Object.keys(names));
+    Object.values(rawVotes).forEach((o) => Object.keys(o || {}).forEach((v) => ids.add(v)));
+    const rows = [...ids].map((id) => {
+      let ok = 0, n = 0, rs = 0, rn = 0;
+      revealedWorks.forEach((w) => { const v = (rawVotes[w.id] || {})[id]; if (v) { n++; if (v === w.ai) ok++; } });
+      Object.values(ratings).forEach((byVoter) => Object.values((byVoter || {})[id] || {}).forEach((v) => { if (+v) { rs += +v; rn++; } }));
+      return { id, name: names[id] || "Без имени", ok, n, avgRate: rn >= 3 ? rs / rn : null };
+    });
+    rows.sort((a, b) => b.ok - a.ok || b.n - a.n || a.name.localeCompare(b.name, "ru"));
+    return { rows, revealedCount: revealedWorks.length };
+  }
+  function renderLeader() {
+    const { rows, revealedCount } = leaderboard();
+    if (!rows.length) { $("#leaderBox").innerHTML = `<p class="hint">Пока никто не голосовал с телефона.</p>`; return; }
+    const medal = (i) => ["🥇", "🥈", "🥉"][i] || `${i + 1}.`;
+    const raters = rows.filter((r) => r.avgRate != null).sort((a, b) => a.avgRate - b.avgRate);
+    $("#leaderBox").innerHTML = (revealedCount ? "" : `<p class="hint">Очки появятся после раскрытия первого ответа. Участников: ${rows.length}.</p>`) +
+      `<ol class="leader-list">${rows.slice(0, 15).map((r, i) => `<li><span class="pos">${revealedCount ? medal(i) : "•"}</span><span class="nm">${esc(r.name)}</span><span class="sc">${revealedCount ? `${r.ok} из ${r.n}` : ""}</span></li>`).join("")}</ol>` +
+      (rows.length > 15 ? `<p class="hint">…и ещё ${rows.length - 15}</p>` : "") +
+      (raters.length >= 2 ? `<p class="hint">😤 Самый строгий оценщик: <b>${esc(raters[0].name)}</b> (${fmt1(raters[0].avgRate)} ★) · 😊 самый щедрый: <b>${esc(raters[raters.length - 1].name)}</b> (${fmt1(raters[raters.length - 1].avgRate)} ★)</p>` : "");
+  }
+
+  /* ---------- итоги на весь экран ---------- */
+  const finalOverlay = $("#finalOverlay");
+  function renderFinal() {
+    const scored = S.works.map((w) => ({ w, q: qualityOf(w.id) })).filter((x) => x.q.total != null).sort((a, b) => b.q.total - a.q.total);
+    const allRevealed = S.works.every((w) => state.revealed[w.id]);
+    $("#finalBest").innerHTML = !scored.length ? `<p class="hint">Оценок пока нет.</p>` :
+      `<ol class="final-rank">${scored.map(({ w, q }, i) => {
+        const t = toolById[w.ai], show = state.revealed[w.id];
+        return `<li class="${i === 0 ? "first" : ""}" style="--c:${show && t ? t.color : "var(--accent)"}">
+          <span class="pos">${["🥇", "🥈", "🥉"][i] || i + 1}</span>
+          <span class="nm">${show && t ? esc(t.name) : `Работа ${S.works.indexOf(w) + 1}`}</span>
+          <span class="bar"><i style="width:${(q.total / 5) * 100}%"></i></span>
+          <span class="sc">${fmt1(q.total)} ★</span></li>`;
+      }).join("")}</ol>`;
+    const { rows, revealedCount } = leaderboard();
+    $("#finalPodium").innerHTML = !revealedCount || !rows.length ? `<p class="hint">Появится после раскрытия ответов.</p>` :
+      `<ol class="final-rank people">${rows.slice(0, 5).map((r, i) => `<li class="${i === 0 ? "first" : ""}">
+        <span class="pos">${["🥇", "🥈", "🥉"][i] || i + 1}</span><span class="nm">${esc(r.name)}</span>
+        <span class="sc">${r.ok} из ${r.n}</span></li>`).join("")}</ol>`;
+    $("#finalNote").textContent = allRevealed ? "" : "Не все ответы раскрыты — названия ИИ скрыты до раскрытия.";
+  }
+  const openFinal = () => { renderFinal(); finalOverlay.hidden = false; };
+  const closeFinal = () => (finalOverlay.hidden = true);
+  $("#finalBtn").onclick = openFinal;
+  $("#finalClose").onclick = closeFinal;
+  finalOverlay.addEventListener("click", (e) => { if (e.target === finalOverlay) closeFinal(); });
+
   function renderResults() {
     const st = computeStats();
     const revealedCount = S.works.filter((w) => state.revealed[w.id]).length;
@@ -191,6 +275,8 @@
     }).join("");
     $("#resultsTable").innerHTML = `<thead>${head}</thead><tbody>${rows}</tbody>`;
     renderTools(st);
+    renderQuality();
+    renderLeader();
   }
   $("#resultsTable").addEventListener("click", (e) => {
     const r = e.target.closest("tr[data-id]"); if (r) openViewer(r.dataset.id);
@@ -211,11 +297,13 @@
     online = {}; voters = 0; refresh();
   };
   $("#exportBtn").onclick = () => {
-    const head = ["#", "Работа", "Формат", ...S.tools.map((t) => t.name), "Всего", "Из них с телефонов", "Правильный ответ"];
+    const head = ["#", "Работа", "Формат", ...S.tools.map((t) => t.name), "Всего", "Из них с телефонов", "Правильный ответ",
+      ...CRIT.map((c) => c.label + " (ср.)"), "Средний балл", "Оценили, чел."];
     const lines = [head, ...S.works.map((w, i) => {
       const v = countsOf(w.id);
       return [i + 1, w.title, w.format, ...S.tools.map((t) => v[t.id]), sum(v), onlineOf(w.id),
-        state.revealed[w.id] ? (toolById[w.ai] || {}).name || w.ai : "скрыт"];
+        state.revealed[w.id] ? (toolById[w.ai] || {}).name || w.ai : "скрыт",
+        ...(() => { const q = qualityOf(w.id); return [...CRIT.map((c) => fmt1(q.crit[c.id])), fmt1(q.total), q.people]; })()];
     })].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";"));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
@@ -305,7 +393,9 @@
       </div>`;
     }).join("");
     const on = onlineOf(w.id);
-    $("#voteTotal").textContent = LIVE ? `Всего голосов: ${n} (📱 ${on} · ✋ ${n - on})` : `Всего голосов: ${n}`;
+    const qq = qualityOf(w.id);
+    $("#voteTotal").textContent = (LIVE ? `Всего голосов: ${n} (📱 ${on} · ✋ ${n - on})` : `Всего голосов: ${n}`) +
+      (LIVE && CRIT.length ? ` · ⭐ оценили: ${qq.people}` : "");
     $("#liveStatus").innerHTML = !LIVE
       ? "Не настроено — см. README (Firebase)."
       : `${connected ? "🟢 на связи" : "🟠 подключение…"} · ${esc(shortUrl)}`;
@@ -319,6 +409,7 @@
       ans.style.setProperty("--c", t.color);
       ans.innerHTML = `<div class="who"><span class="dot"></span>${esc(t.name)}</div>
         <p class="acc">${a === null ? "Голосов не было." : `Угадали ${a}% аудитории.`}</p>
+        ${qq.total != null ? `<div class="mini-q">${CRIT.map((c) => `<span>${esc(c.label)}</span><b>${fmt1(qq.crit[c.id])} ★</b>`).join("")}<span><b>Средний балл</b></span><b>${fmt1(qq.total)} ★</b></div>` : ""}
         ${w.prompt ? `<details open><summary>Промпт</summary><pre>${esc(w.prompt)}</pre></details>` : ""}
         ${w.notes ? `<details open><summary>Комментарий</summary><p>${esc(w.notes)}</p></details>` : ""}
         <button class="btn ghost small" id="hideAgain" style="margin-top:10px">Скрыть ответ</button>`;
@@ -361,6 +452,8 @@
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
     const k = e.key.toLowerCase();
     if (!overlay.hidden && k === "escape") { closeQr(); e.preventDefault(); return; }
+    if (!finalOverlay.hidden && k === "escape") { closeFinal(); e.preventDefault(); return; }
+    if ((k === "t" || k === "е") && !current) { finalOverlay.hidden ? openFinal() : closeFinal(); e.preventDefault(); return; }
     if (k === "q" || k === "й") { overlay.hidden ? openQr() : closeQr(); e.preventDefault(); return; }
     if (!current) return;
     if (k === "escape" && !document.fullscreenElement) closeViewer();
@@ -375,7 +468,7 @@
 
   /* ---------- init ---------- */
   function refresh() { renderGrid(); renderResults(); }
-  function liveUpdate() { refresh(); if (current) renderPoll(); if (!overlay.hidden) updateQrCount(); }
+  function liveUpdate() { refresh(); if (current) renderPoll(); if (!overlay.hidden) updateQrCount(); if (!finalOverlay.hidden) renderFinal(); }
   refresh();
   const initial = location.hash.slice(1);
   if (S.works.some((w) => w.id === initial)) openViewer(initial);
