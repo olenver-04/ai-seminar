@@ -18,6 +18,7 @@
 
   /* ---------- голосование с телефонов (Firebase Realtime Database) ---------- */
   const LIVE = !!(S.firebase && S.firebase.databaseURL && window.firebase);
+  let ready = false; // данные из базы могут прийти раньше, чем страница готова
   let root = null, online = {}, voters = 0, connected = false;
   let rawVotes = {}, ratings = {}, names = {}; // votes/{work}/{voter}, ratings/{work}/{voter}/{crit}, names/{voter}
   const voteUrl = new URL("vote.html", location.href).href;
@@ -468,7 +469,8 @@
 
   /* ---------- init ---------- */
   function refresh() { renderGrid(); renderResults(); }
-  function liveUpdate() { refresh(); if (current) renderPoll(); if (!overlay.hidden) updateQrCount(); if (!finalOverlay.hidden) renderFinal(); }
+  function liveUpdate() { if (!ready) return; refresh(); if (current) renderPoll(); if (!overlay.hidden) updateQrCount(); if (!finalOverlay.hidden) renderFinal(); }
+  ready = true;
   refresh();
   const initial = location.hash.slice(1);
   if (S.works.some((w) => w.id === initial)) openViewer(initial);
